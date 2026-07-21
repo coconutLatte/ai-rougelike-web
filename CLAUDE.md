@@ -67,28 +67,52 @@ Every change must pass ALL gates before commit/push:
 - Player level-up and item usage
 - Save/load roundtrip
 - Full game session smoke test
-- Systems operate on GameState; keep rendering out of entities
-- Canvas rendering only in RenderSystem
-- Commit format: `feat(scope): description`
-- Tile size from `utils/constants.ts` — never hardcode
-- Colors from `data/colors.ts` — never inline hex values
-- Seeded RNG for all procedural generation
+
+## Bug Fixing Protocol
+
+The project has a daily self-assessment (`scripts/assess.sh`) that evaluates the live GitHub Pages game as a QA tester and writes findings to `docs/bugs.md`.
+
+### When implementing (evolve.sh implement mode):
+1. **Bugs get priority**: check `docs/bugs.md` first — if there are open **critical** or **major** bugs, fix them before the roadmap task
+2. When a bug is fixed: move it from "Active Bugs" to "Resolved Bugs" with `Status: fixed` and today's date
+3. When a roadmap task would also fix a bug: reference the bug ID in the task notes
+
+### Bug severity guidelines:
+- **critical**: Game crashes, page doesn't load, unplayable state
+- **major**: Core gameplay broken (combat doesn't work, can't move, FOV broken)
+- **minor**: Annoying but playable (balance issues, HUD glitches, edge cases)
+- **cosmetic**: Visual polish (colors, alignment, text issues)
 
 ## Evolution Protocol
 
-1. Read `docs/roadmap.md`, find highest-priority pending task
-2. Read relevant source files to understand current state
-3. Implement the task (code + tests)
-4. Quality gate: `npm run build && npm run lint && npm run test`
-5. If quality gate fails, fix errors and retry (max 3 attempts, then skip task)
-6. Update roadmap: mark task `completed` with date
-7. Update README evolution stats block
-8. `git add -A && git commit -m "feat(scope): description" && git push`
+1. Read `docs/bugs.md` — check for open critical/major bugs (fix these FIRST)
+2. Read `docs/roadmap.md`, find highest-priority pending task
+3. Read relevant source files to understand current state
+4. Implement the task or fix the bug (code + tests)
+5. If fixing a bug: update `docs/bugs.md` (move to Resolved)
+6. Quality gate: `npm run build && npm run lint && npm run test`
+7. If quality gate fails, fix errors and retry (max 3 attempts, then skip task)
+8. Update roadmap: mark task `completed` with date
+9. Update README evolution stats block
+10. `git add -A && git commit -m "feat(scope): description" && git push`
 
 ## Constraints
 
 - Implement ONLY the current task; do not scope-creep
 - Do NOT add new tasks to roadmap during implement mode
-- Do NOT modify `scripts/evolve.sh` or `.github/` configs
+- Do NOT modify `scripts/evolve.sh`, `scripts/assess.sh`, or `.github/` configs
 - Keep changes minimal and focused
 - Follow existing patterns in the codebase
+
+## Automation Schedule
+
+| Script | Frequency | Purpose |
+|--------|-----------|---------|
+| `scripts/evolve.sh` | Every 30 min | Implement roadmap tasks |
+| `scripts/assess.sh` | Once daily | QA assessment of live game → docs/bugs.md |
+
+### Crontab example:
+```
+*/30 * * * * bash /path/to/project/scripts/evolve.sh >> logs/evolve.log 2>&1
+0 9 * * * bash /path/to/project/scripts/assess.sh >> logs/assess.log 2>&1
+```

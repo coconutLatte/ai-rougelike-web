@@ -79,14 +79,16 @@ You are the AI Evolution Engine for the AI Roguelike game.
 - Coding conventions: see CLAUDE.md
 
 ## Steps
-1. Read docs/roadmap.md and docs/architecture.md to understand current state
-2. Read relevant source files in src/ to understand the codebase
-3. Implement the task — write code AND tests
-4. Run quality checks: \`npm run build && npm run lint && npm run test\`
-5. If quality gate fails, fix errors and retry (max 3 attempts)
-6. Update docs/roadmap.md: mark ${TASK_ID} as completed with today's date
-7. Update README.md evolution stats block (between <!-- EVOLUTION-STATS-START --> and <!-- EVOLUTION-STATS-END -->)
-8. git add -A && git commit -m "feat: ${TASK_DESC}" && git push
+1. Read docs/bugs.md — if there are open **critical** or **major** bugs, fix them FIRST (before the roadmap task). Bug fixes take priority over new features.
+2. Read docs/roadmap.md and docs/architecture.md to understand current state
+3. Read relevant source files in src/ to understand the codebase
+4. Implement the task (or fix the priority bug) — write code AND tests
+5. If you fixed a bug: move it to "Resolved Bugs" in docs/bugs.md with Status: fixed and today's date
+6. Run quality checks: \`npm run build && npm run lint && npm run test\`
+7. If quality gate fails, fix errors and retry (max 3 attempts)
+8. Update docs/roadmap.md: mark ${TASK_ID} as completed with today's date
+9. Update README.md evolution stats block (between <!-- EVOLUTION-STATS-START --> and <!-- EVOLUTION-STATS-END -->)
+10. git add -A && git commit -m "feat: ${TASK_DESC}" && git push
 
 ## Constraints
 - Implement ONLY this task, do not scope-creep
