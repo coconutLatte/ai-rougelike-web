@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Roguelike</title>
+  <link rel="stylesheet" href="/styles/main.css" />
+  <link rel="icon" type="image/svg+xml" href="/public/favicon.svg" />
+</head>
+<body>
+  <div id="app">
+    <div id="game-container">
+      <canvas id="game-canvas"></canvas>
+    </div>
+    <div id="hud">
+      <div id="stats-panel">
+        <div id="player-name">@ Adventurer</div>
+        <div class="stat-row">
+          <span class="stat-label">HP</span>
+          <div class="hp-bar-container">
+            <div id="hp-bar" class="hp-bar"></div>
+          </div>
+          <span id="hp-text">20/20</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Floor</span>
+          <span id="floor-text">1</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Turn</span>
+          <span id="turn-text">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">ATK</span>
+          <span id="atk-text">5</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">DEF</span>
+          <span id="def-text">2</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Level</span>
+          <span id="level-text">1</span>
+        </div>
+      </div>
+      <div id="message-log">
+        <div id="message-log-inner"></div>
+      </div>
+      <div id="controls-hint">
+        <span>Arrow keys / vi (h/j/k/l) to move</span>
+        <span>Bump to attack · S to save</span>
+      </div>
+    </div>
+  </div>
+  <div id="overlay" class="hidden">
+    <div id="overlay-content"></div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

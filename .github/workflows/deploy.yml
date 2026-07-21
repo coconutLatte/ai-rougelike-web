@@ -1,0 +1,41 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Deploy to docs/
+        run: |
+          # Only overwrite demo files, preserve documentation
+          rm -rf docs/assets/ 2>/dev/null || true
+          rm -f docs/index.html docs/favicon.svg 2>/dev/null || true
+          cp -r dist/* docs/
+
+      - name: Commit and push
+        run: |
+          git config user.name "Evolution Bot"
+          git config user.email "bot@ai-rougelike.dev"
+          git add docs/
+          if git diff --staged --quiet; then
+            echo "No changes to deploy"
+          else
+            git commit -m "chore: deploy demo to GitHub Pages"
+            git push
+          fi
