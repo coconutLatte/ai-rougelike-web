@@ -5,7 +5,29 @@ on:
     branches: [master]
 
 jobs:
-  build-and-deploy:
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Type check & build
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Gameplay tests
+        run: npm run test
+
+  deploy:
+    needs: quality-gate
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -20,6 +42,18 @@ jobs:
       - run: npm ci
 
       - run: npm run build
+
+      - name: Verify build output
+        run: |
+          if [ ! -f dist/index.html ]; then
+            echo "ERROR: dist/index.html not found — build failed silently"
+            exit 1
+          fi
+          if [ ! -d dist/assets ]; then
+            echo "ERROR: dist/assets/ not found — game assets missing"
+            exit 1
+          fi
+          echo "Build output verified: game is deployable"
 
       - name: Deploy to docs/
         run: |

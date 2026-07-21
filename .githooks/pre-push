@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Pre-push hook: run quality gate before allowing push to remote.
+# Install: git config core.hooksPath .githooks
+
+set -euo pipefail
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🔍 Pre-push quality gate"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# 1. Type check
+echo ""
+echo "📦 TypeScript type check..."
+npx tsc --noEmit
+echo "   ✅ Type check passed"
+
+# 2. Lint
+echo ""
+echo "🧹 ESLint..."
+npm run lint
+echo "   ✅ Lint passed"
+
+# 3. Build
+echo ""
+echo "🏗️  Vite build..."
+npm run build
+echo "   ✅ Build passed"
+
+# 4. Gameplay tests
+echo ""
+echo "🎮 Gameplay tests..."
+npm run test
+echo "   ✅ All gameplay tests passed"
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ Quality gate passed — pushing..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

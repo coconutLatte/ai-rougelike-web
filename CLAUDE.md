@@ -44,6 +44,36 @@ src/
 - Colors from `data/colors.ts` — never inline hex values
 - Seeded RNG for all procedural generation
 
+## Quality Gates
+
+Every change must pass ALL gates before commit/push:
+
+### Local (pre-push hook via `.githooks/pre-push`)
+1. `npx tsc --noEmit` — zero type errors
+2. `npm run lint` — zero ESLint errors
+3. `npm run build` — successful Vite build
+4. `npm run test` — all 23+ tests pass (5 unit + 18 gameplay)
+
+### CI/CD (GitHub Actions `.github/workflows/deploy.yml`)
+- `quality-gate` job: runs type check + lint + gameplay tests
+- `deploy` job: only runs if quality gate passes
+- Build output verification: confirms `dist/index.html` and `dist/assets/` exist
+- **Broken code CANNOT reach GitHub Pages** — deploy job depends on gate passing
+
+### Gameplay tests verify the game is actually playable:
+- Dungeon connectivity (all rooms reachable via A*)
+- Combat damage calculation and death
+- FOV visibility and wall blocking
+- Player level-up and item usage
+- Save/load roundtrip
+- Full game session smoke test
+- Systems operate on GameState; keep rendering out of entities
+- Canvas rendering only in RenderSystem
+- Commit format: `feat(scope): description`
+- Tile size from `utils/constants.ts` — never hardcode
+- Colors from `data/colors.ts` — never inline hex values
+- Seeded RNG for all procedural generation
+
 ## Evolution Protocol
 
 1. Read `docs/roadmap.md`, find highest-priority pending task

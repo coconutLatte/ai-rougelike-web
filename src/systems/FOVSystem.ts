@@ -3,7 +3,7 @@ import { TileData, TileType } from '../core/types';
 import { FOV_RADIUS } from '../utils/constants';
 
 /**
- * Recursive shadowcasting FOV.
+ * Recursive shadowcasting FOV (simplified octant-based).
  * Computes which tiles are visible from an origin point.
  */
 export class FOVSystem {
@@ -12,6 +12,8 @@ export class FOVSystem {
   private height: number;
   private radius: number;
   private visibility: Visibility[][];
+  private ox = 0;
+  private oy = 0;
 
   constructor(tiles: TileData[][], width: number, height: number) {
     this.tiles = tiles;
@@ -22,13 +24,20 @@ export class FOVSystem {
   }
 
   compute(origin: Position, existingVisibility?: Visibility[][]): Visibility[][] {
+    this.ox = origin.x;
+    this.oy = origin.y;
+
     // Initialize visibility grid
     this.visibility = [];
     for (let y = 0; y < this.height; y++) {
       this.visibility[y] = [];
       for (let x = 0; x < this.width; x++) {
-        // Keep remembered tiles from previous state
-        if (existingVisibility && existingVisibility[y]?.[x] === Visibility.Remembered) {
+        // Preserve previously seen tiles as remembered
+        if (
+          existingVisibility &&
+          existingVisibility[y]?.[x] !== undefined &&
+          existingVisibility[y][x] !== Visibility.Unknown
+        ) {
           this.visibility[y][x] = Visibility.Remembered;
         } else {
           this.visibility[y][x] = Visibility.Unknown;
@@ -41,10 +50,10 @@ export class FOVSystem {
 
     // Cast rays in all 8 octants
     for (let octant = 0; octant < 8; octant++) {
-      this.castRay(origin.x, origin.y, 1, 1.0, 0.0, octant);
+      this.castOctant(octant);
     }
 
-    // Also mark explored for all visible tiles
+    // Update tile explored/visible state
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         if (this.visibility[y][x] === Visibility.Visible) {
@@ -61,85 +70,88 @@ export class FOVSystem {
     return this.visibility;
   }
 
-  private castRay(
-    ox: number,
-    oy: number,
-    depth: number,
-    startSlope: number,
-    endSlope: number,
-    octant: number,
-  ): void {
-    if (depth > this.radius) return;
+  /**
+   * Cast rays in one octant using recursive shadowcasting.
+   */
+  private castOctant(octant: number): void {
+    // Scan each row (distance from origin) and check visibility
+    const slopes: number[] = [];
 
-    let prevBlocked = false;
+    for (let row = 1; row <= this.radius; row++) {
+      const newSlopes: number[] = [];
+      let wasBlocked = false;
 
-    const startY = Math.floor(depth * startSlope + 0.5);
-    const endY = Math.ceil(depth * endSlope - 0.5);
+      // For each column in this row of the octant
+      for (let col = 0; col <= row; col++) {
+        const { x, y } = this.transformOctant(this.ox, this.oy, row, col, octant);
 
-    for (let dy = startY; dy <= endY; dy++) {
-      const dx = depth;
-      const { x, y } = this.transformOctant(ox, oy, dx, dy, octant);
+        if (x < 0 || x >= this.width || y < 0 || y >= this.height) continue;
 
-      if (x < 0 || x >= this.width || y < 0 || y >= this.height) continue;
+        // Check if this cell is in a shadow from the previous row
+        const slope0 = col / (row + 0.5);
+        const slope1 = (col + 1) / (row - 0.5);
 
-      this.markVisible(x, y);
+        // The actual visibility check: is this angle range fully blocked?
+        const inShadow = this.isInShadow(slope0, slope1, slopes);
 
-      const blocks = this.tiles[y][x].type === TileType.Wall;
-
-      if (prevBlocked && !blocks) {
-        // Wall corner — reset slope from this point
-        const newStart = (dy - 0.5) / (depth + 0.5);
-        if (newStart > startSlope) {
-          this.castRay(ox, oy, depth + 1, newStart, endSlope, octant);
+        if (!inShadow) {
+          this.markVisible(x, y);
         }
-      }
 
-      if (blocks) {
-        if (!prevBlocked) {
-          // Wall encountered — recurse with narrowed slope
-          const newEnd = (dy - 0.5) / (depth - 0.5);
-          if (newEnd > startSlope) {
-            this.castRay(ox, oy, depth + 1, startSlope, newEnd, octant);
+        const blocks = this.tiles[y][x].type === TileType.Wall;
+
+        if (blocks) {
+          if (!wasBlocked) {
+            newSlopes.push(slope0);
           }
+          wasBlocked = true;
+        } else {
+          if (wasBlocked) {
+            newSlopes.push(slope1);
+          }
+          wasBlocked = false;
         }
-        prevBlocked = true;
-      } else {
-        prevBlocked = false;
       }
-    }
 
-    // Continue if not fully blocked
-    if (!prevBlocked || endSlope > startSlope) {
-      this.castRay(ox, oy, depth + 1, startSlope, endSlope, octant);
+      if (wasBlocked) {
+        newSlopes.push(1.0);
+      }
+
+      slopes.length = 0;
+      slopes.push(...newSlopes);
     }
+  }
+
+  /**
+   * Check if the angle range [a0, a1] falls within any blocked slope pair.
+   */
+  private isInShadow(a0: number, a1: number, slopes: number[]): boolean {
+    for (let i = 0; i < slopes.length; i += 2) {
+      const s0 = slopes[i];
+      const s1 = slopes[i + 1] ?? 1.0;
+      // The range is blocked if it's fully contained within [s0, s1]
+      if (a0 >= s0 && a1 <= s1) return true;
+    }
+    return false;
   }
 
   private transformOctant(
     ox: number,
     oy: number,
-    dx: number,
-    dy: number,
+    row: number,
+    col: number,
     octant: number,
   ): { x: number; y: number } {
     switch (octant) {
-      case 0:
-        return { x: ox + dx, y: oy - dy };
-      case 1:
-        return { x: ox + dy, y: oy - dx };
-      case 2:
-        return { x: ox - dy, y: oy - dx };
-      case 3:
-        return { x: ox - dx, y: oy - dy };
-      case 4:
-        return { x: ox - dx, y: oy + dy };
-      case 5:
-        return { x: ox - dy, y: oy + dx };
-      case 6:
-        return { x: ox + dy, y: oy + dx };
-      case 7:
-        return { x: ox + dx, y: oy + dy };
-      default:
-        return { x: ox + dx, y: oy - dy };
+      case 0: return { x: ox + row, y: oy - col };
+      case 1: return { x: ox + col, y: oy - row };
+      case 2: return { x: ox - col, y: oy - row };
+      case 3: return { x: ox - row, y: oy - col };
+      case 4: return { x: ox - row, y: oy + col };
+      case 5: return { x: ox - col, y: oy + row };
+      case 6: return { x: ox + col, y: oy + row };
+      case 7: return { x: ox + row, y: oy + col };
+      default: return { x: ox + row, y: oy - col };
     }
   }
 
