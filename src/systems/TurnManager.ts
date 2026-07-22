@@ -73,6 +73,9 @@ export class TurnManager {
           const nx = enemy.position.x + dir.dx;
           const ny = enemy.position.y + dir.dy;
 
+          // Bounds check before accessing tile data
+          if (nx < 0 || nx >= dungeon.width || ny < 0 || ny >= dungeon.height) continue;
+
           const occupied = enemies.some(
             (e) =>
               e !== enemy &&

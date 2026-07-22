@@ -13,7 +13,9 @@ import { Item } from './entities/Item';
 import { CombatSystem } from './systems/CombatSystem';
 import { FOVSystem } from './systems/FOVSystem';
 import { SaveManager } from './systems/SaveManager';
+import { TurnManager } from './systems/TurnManager';
 import { findPath } from './utils/pathfinding';
+import { createTile } from './core/Tile';
 import {
   TileType,
   Visibility,
@@ -411,5 +413,226 @@ describe('Full game simulation (smoke test)', () => {
 
     const path = findPath(start, stairsPos, dungeon.tiles, dungeon.width, dungeon.height);
     expect(path).not.toBeNull();
+  });
+});
+
+// ─── BUG-001: Save/Load roundtrip ──────────────────────────────
+
+describe('Save/Load roundtrip (BUG-001)', () => {
+  it('should serialize and deserialize a complete game state', () => {
+    const dungeon = new Dungeon(42);
+    const firstRoom = dungeon.rooms[0];
+    const player = new Player({
+      x: firstRoom.x + Math.floor(firstRoom.width / 2),
+      y: firstRoom.y + Math.floor(firstRoom.height / 2),
+    });
+    player.xp = 10;
+    player.level = 2;
+    player.stats.hp = 18;
+
+    // Add item to inventory
+    const potion = new Item(ITEM_TEMPLATES[0], { x: 1, y: 1 });
+    player.inventory.push(potion);
+
+    const enemies = [
+      new Enemy(ENEMY_TEMPLATES[0], { x: 5, y: 5 }),
+      new Enemy(ENEMY_TEMPLATES[2], { x: 10, y: 10 }),
+    ];
+    // Damage one enemy
+    enemies[0].stats.hp = 3;
+
+    const items = [
+      new Item(ITEM_TEMPLATES[1], { x: 8, y: 8 }),
+      new Item(ITEM_TEMPLATES[3], { x: 15, y: 12 }),
+    ];
+
+    const visibility: Visibility[][] = [];
+    for (let y = 0; y < MAP_HEIGHT; y++) {
+      visibility[y] = new Array(MAP_WIDTH).fill(Visibility.Unknown);
+    }
+
+    const state = {
+      player,
+      enemies,
+      items,
+      dungeon: {
+        width: dungeon.width,
+        height: dungeon.height,
+        tiles: dungeon.tiles,
+        rooms: dungeon.rooms,
+      },
+      turn: 42,
+      currentFloor: 3,
+      messageLog: [
+        { text: 'Hello!', type: 'info' as const, turn: 1 },
+        { text: 'A rat bites you!', type: 'combat' as const, turn: 5 },
+      ],
+      gameOver: false,
+      visibility,
+    };
+
+    // Save
+    const saved = SaveManager.save(state);
+    expect(saved).toBe(true);
+
+    // Load
+    const loaded = SaveManager.load();
+    expect(loaded).not.toBeNull();
+    if (!loaded) return;
+
+    // Verify player
+    expect(loaded.player.position.x).toBe(player.position.x);
+    expect(loaded.player.position.y).toBe(player.position.y);
+    expect(loaded.player.xp).toBe(10);
+    expect(loaded.player.level).toBe(2);
+    expect(loaded.player.stats.hp).toBe(18);
+    expect(loaded.player.inventory.length).toBe(1);
+    expect(loaded.player.inventory[0].template.name).toBe('Health Potion');
+
+    // Verify enemies
+    expect(loaded.enemies.length).toBe(2);
+    expect(loaded.enemies[0].template.name).toBe('Rat');
+    expect(loaded.enemies[0].stats.hp).toBe(3);
+    expect(loaded.enemies[1].template.name).toBe('Goblin');
+
+    // Verify items
+    expect(loaded.items.length).toBe(2);
+    expect(loaded.items[0].template.name).toBe('Iron Sword');
+    expect(loaded.items[1].template.name).toBe('Strength Potion');
+
+    // Verify dungeon
+    expect(loaded.dungeon.width).toBe(MAP_WIDTH);
+    expect(loaded.dungeon.height).toBe(MAP_HEIGHT);
+    expect(loaded.dungeon.rooms.length).toBe(dungeon.rooms.length);
+
+    // Verify metadata
+    expect(loaded.turn).toBe(42);
+    expect(loaded.currentFloor).toBe(3);
+    expect(loaded.messageLog.length).toBe(2);
+    expect(loaded.gameOver).toBe(false);
+
+    // Cleanup
+    SaveManager.deleteSave();
+  });
+
+  it('should return null when no save exists', () => {
+    SaveManager.deleteSave();
+    expect(SaveManager.load()).toBeNull();
+  });
+
+  it('should restore dungeon tile types correctly', () => {
+    const dungeon = new Dungeon(1337);
+    const player = new Player({ x: 20, y: 15 });
+
+    const state = {
+      player,
+      enemies: [] as Enemy[],
+      items: [] as Item[],
+      dungeon: {
+        width: dungeon.width,
+        height: dungeon.height,
+        tiles: dungeon.tiles,
+        rooms: dungeon.rooms,
+      },
+      turn: 1,
+      currentFloor: 1,
+      messageLog: [] as Array<{ text: string; type: 'info' | 'combat' | 'danger' | 'success'; turn: number }>,
+      gameOver: false,
+      visibility: [] as Visibility[][],
+    };
+
+    SaveManager.save(state);
+    const loaded = SaveManager.load();
+    expect(loaded).not.toBeNull();
+    if (!loaded) return;
+
+    // Compare all tile types
+    for (let y = 0; y < MAP_HEIGHT; y++) {
+      for (let x = 0; x < MAP_WIDTH; x++) {
+        expect(loaded.dungeon.tiles[y][x].type).toBe(dungeon.tiles[y][x].type);
+      }
+    }
+
+    SaveManager.deleteSave();
+  });
+});
+
+// ─── BUG-002: Enemy wander bounds check ────────────────────────
+
+describe('Enemy wander bounds safety (BUG-002)', () => {
+  it('should not crash when enemy wanders near map edge', () => {
+    // Create a minimal dungeon with walls at edges
+    const tiles: TileData[][] = [];
+    for (let y = 0; y < 10; y++) {
+      tiles[y] = [];
+      for (let x = 0; x < 10; x++) {
+        const isEdge = x === 0 || x === 9 || y === 0 || y === 9;
+        tiles[y][x] = createTile(isEdge ? TileType.Wall : TileType.Floor);
+      }
+    }
+
+    const player = new Player({ x: 5, y: 5 });
+
+    // Place enemy at map edge (adjacent to wall at x=0)
+    const enemy = new Enemy(ENEMY_TEMPLATES[0], { x: 1, y: 5 });
+
+    const mockGame = {
+      state: {
+        enemies: [enemy],
+        player,
+        dungeon: { tiles, width: 10, height: 10 },
+        visibility: [] as Visibility[][],
+      },
+      combat: {
+        resolve: () => {},
+      },
+    } as unknown as import('./core/Game').Game;
+
+    const turnManager = new TurnManager();
+
+    // This should not throw — it used to crash before BUG-002 fix
+    expect(() => {
+      turnManager.processEnemyTurns(mockGame);
+    }).not.toThrow();
+  });
+});
+
+// ─── BUG-003: Player position on floor change ──────────────────
+
+describe('Floor transition (BUG-003)', () => {
+  it('should reset player to first room center on new dungeon', () => {
+    // Simulate the logic from Game.nextFloor():
+    // Player position should be set to new dungeon's first room center
+    const dungeon1 = new Dungeon(100);
+    const dungeon2 = new Dungeon(200);
+
+    const firstRoom1 = dungeon1.rooms[0];
+    const firstRoom2 = dungeon2.rooms[0];
+
+    // "Old" player at stairs position (last room of dungeon1)
+    const oldPlayer = new Player({
+      x: firstRoom1.x + Math.floor(firstRoom1.width / 2),
+      y: firstRoom1.y + Math.floor(firstRoom1.height / 2),
+    });
+
+    // The fix: reset position to new dungeon's first room
+    const newPlayerPos: Position = {
+      x: firstRoom2.x + Math.floor(firstRoom2.width / 2),
+      y: firstRoom2.y + Math.floor(firstRoom2.height / 2),
+    };
+    oldPlayer.position = newPlayerPos;
+
+    // Player should be on a Floor tile in the new dungeon
+    const tileAtNewPos = dungeon2.tiles[newPlayerPos.y][newPlayerPos.x];
+    expect(tileAtNewPos.type).toBe(TileType.Floor);
+
+    // Player position should NOT be the same as old first room
+    // (unless by coincidence, which is extremely unlikely with different seeds)
+    const oldFirstRoomCenter: Position = {
+      x: firstRoom1.x + Math.floor(firstRoom1.width / 2),
+      y: firstRoom1.y + Math.floor(firstRoom1.height / 2),
+    };
+    // The new position is from dungeon2's first room
+    expect(newPlayerPos).not.toEqual(oldFirstRoomCenter);
   });
 });

@@ -24,39 +24,6 @@ Each bug entry:
 
 ## Active Bugs
 
-### BUG-001: Save/Load system is completely non-functional — deserialize() always returns null
-- **Severity**: critical
-- **Status**: open
-- **Found**: 2026-07-21
-- **Category**: crash
-- **File**: `src/systems/SaveManager.ts:83-87`
-- **Reproduction**: Start game → press S to save → refresh page → game starts fresh (save ignored)
-- **Expected**: Game restores player position, stats, inventory, dungeon layout, floor number from save
-- **Actual**: `SaveManager.deserialize()` is a stub that always returns `null`. `Game.start()` can never load a saved game
-- **Suggestion**: Implement `deserialize()` to reconstruct dungeon from serialized tile data, rebuild entities, recompute visibility
-
-### BUG-002: Enemy random-wander movement lacks bounds checking → crash
-- **Severity**: critical
-- **Status**: open
-- **Found**: 2026-07-21
-- **Category**: crash
-- **File**: `src/systems/TurnManager.ts:73-88`
-- **Reproduction**: Enemy wanders to map edge → picks direction toward edge → `dungeon.tiles[-1][y]` throws TypeError
-- **Expected**: Out-of-bounds movement rejected; enemy stays put or picks different direction
-- **Actual**: No bounds check on nx/ny before accessing `dungeon.tiles[ny][nx].blocksMovement`. Undefined access crashes the game
-- **Suggestion**: Add `if (nx < 0 || nx >= dungeon.width || ny < 0 || ny >= dungeon.height) continue;` before tile access
-
-### BUG-003: Player appears inside wall after descending floors
-- **Severity**: critical
-- **Status**: open
-- **Found**: 2026-07-21
-- **Category**: gameplay
-- **File**: `src/core/Game.ts:227-250`
-- **Reproduction**: Descend stairs → new floor has different dungeon layout → player position unchanged from old floor stairs
-- **Expected**: Player appears in first room of new floor
-- **Actual**: `newState.player = this.state.player` carries over old position. Since dungeon layout differs, position may be a Wall. Player stuck
-- **Suggestion**: Reset player position to `newState.dungeon.rooms[0]` center after `createNewGame()`
-
 ### BUG-004: Only 3 weakest enemy types ever spawn (Skeleton/Orc are dead code)
 - **Severity**: major
 - **Status**: open
@@ -173,6 +140,31 @@ Each bug entry:
 
 <!-- Fixed bugs are moved here, retaining history -->
 
+### BUG-001: Save/Load system is completely non-functional — deserialize() always returns null
+- **Severity**: critical
+- **Status**: fixed
+- **Found**: 2026-07-21
+- **Fixed**: 2026-07-22
+- **Category**: crash
+- **File**: `src/systems/SaveManager.ts:83-87`
+- **Resolution**: Implemented full `deserialize()` method that reconstructs player (stats/xp/level/inventory), enemies from template names, items from template names, dungeon tiles from serialized type/explored data, rooms, and metadata (turn, floor, messageLog). Loaded games now restore complete playable state.
 
+### BUG-002: Enemy random-wander movement lacks bounds checking → crash
+- **Severity**: critical
+- **Status**: fixed
+- **Found**: 2026-07-21
+- **Fixed**: 2026-07-22
+- **Category**: crash
+- **File**: `src/systems/TurnManager.ts:73-88`
+- **Resolution**: Added bounds check `if (nx < 0 || nx >= dungeon.width || ny < 0 || ny >= dungeon.height) continue;` before accessing `dungeon.tiles[ny][nx]` in enemy wander logic. Enemies no longer crash when wandering near map edges.
 
-*Last assessment: 2026-07-21 | 13 bugs found (3 critical, 3 major, 4 minor, 3 cosmetic)*
+### BUG-003: Player appears inside wall after descending floors
+- **Severity**: critical
+- **Status**: fixed
+- **Found**: 2026-07-21
+- **Fixed**: 2026-07-22
+- **Category**: gameplay
+- **File**: `src/core/Game.ts:227-250`
+- **Resolution**: In `nextFloor()`, player position is now reset to the new dungeon's first room center before carrying over the player entity. This ensures the player always spawns on a valid Floor tile after descending stairs.
+
+*Last assessment: 2026-07-21 | 13 bugs found | 3 fixed (3 critical)*

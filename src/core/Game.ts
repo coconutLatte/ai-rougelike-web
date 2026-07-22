@@ -229,7 +229,13 @@ export class Game {
     const seed = Date.now() + this.state.currentFloor * 1000;
     const newState = this.createNewGame(seed);
 
-    // Carry over player
+    // Carry over player stats/xp/inventory, but reset position to new floor
+    const newFirstRoom = newState.dungeon.rooms[0];
+    const newPlayerPos: Position = {
+      x: newFirstRoom.x + Math.floor(newFirstRoom.width / 2),
+      y: newFirstRoom.y + Math.floor(newFirstRoom.height / 2),
+    };
+    this.state.player.position = newPlayerPos;
     newState.player = this.state.player;
     newState.currentFloor = this.state.currentFloor;
     newState.turn = this.state.turn;

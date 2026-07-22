@@ -9,7 +9,7 @@
 | ID | Priority | Task | Status | Completed | Notes |
 |----|----------|------|--------|-----------|-------|
 | P0-01 | P0 | Project skeleton with build system and minimal playable roguelike (dungeon gen, player movement, enemy AI, bump combat, FOV, HUD, save/load) | completed | 2026-07-21 | Initial seed |
-| P0-02 | P0 | Fix critical bugs: save/load non-functional (BUG-001), enemy wander crash (BUG-002), player wall spawn on floor change (BUG-003) | pending | — | See docs/bugs.md for details |
+| P0-02 | P0 | Fix critical bugs: save/load non-functional (BUG-001), enemy wander crash (BUG-002), player wall spawn on floor change (BUG-003) | completed | 2026-07-22 | See docs/bugs.md for details |
 | P0-03 | P0 | Fix major bugs: enemy pool capped (BUG-004), XP multi-level-up skipped (BUG-005), BSP room overflow (BUG-006) | pending | — | See docs/bugs.md |
 
 ## Phase 1: 3D Foundation
