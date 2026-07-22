@@ -8,10 +8,10 @@ set -euo pipefail
 # ============================================================
 
 # --- Environment ---
-export PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/v22/bin:/usr/local/bin:$PATH"
-export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
-export ANTHROPIC_AUTH_TOKEN="${ANTHROPIC_AUTH_TOKEN:-}"
-export ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-claude-sonnet-4-8}"
+export PATH="$HOME/.local/bin:$HOME/.nvm/versions/node/v24/bin:/usr/local/bin:$PATH"
+export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://one-api.server22.jz}"
+export ANTHROPIC_AUTH_TOKEN="${ANTHROPIC_AUTH_TOKEN:-sk-4v2AKtxcYlM3RNbemF3SMMoZTzxbBJt5fRqYpawSLKR4xGE1}"
+export ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-deepseek-v4-pro[1m]}"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"

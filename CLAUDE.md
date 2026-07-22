@@ -1,20 +1,21 @@
-# AI Roguelike
+# AI Roguelike (3D)
 
-A browser-based turn-based roguelike game, built incrementally by AI evolution.
+A browser-based roguelike game evolving from 2D Canvas to first-person 3D (Three.js/WebGL). Built incrementally by AI evolution.
 
 ## Project Positioning
 
-Classic grid-based roguelike running entirely in the browser. No server, no database — pure client-side game with localStorage persistence. Deployed to GitHub Pages for instant play.
+First-person 3D roguelike running in the browser. Turn-based grid movement, procedural BSP dungeons rendered in 3D with dynamic lighting. No server needed — pure client-side with localStorage saves.
 
 ## Tech Stack
 
-- **TypeScript 5** (strict mode) — catches AI-generated errors at compile time
-- **Vite 6** — fast dev server + optimized production builds
-- **Canvas API** — game world tile rendering
-- **DOM** — HUD and UI overlays
+- **TypeScript 5** (strict) — compile-time safety
+- **Vite 6** — build tool + dev server
+- **Three.js** — WebGL 3D rendering (target)
+- **Canvas API** — 2D rendering (current, being replaced)
+- **DOM** — HUD/UI overlays
 - **Vitest** — testing
 - **ESLint + Prettier** — linting gate
-- **GitHub Pages** — deployment from `docs/` directory
+- **GitHub Pages** — deployment
 
 ## Architecture
 

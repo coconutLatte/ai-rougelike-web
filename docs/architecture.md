@@ -1,105 +1,99 @@
-# Architecture: AI Roguelike
+# Architecture: AI Roguelike (3D)
 
-> Auto-generated and maintained by the evolution engine.
+> Target: First-person 3D roguelike using Three.js / WebGL.
+> Current phase: 2D Canvas (transitioning to 3D).
 
 ## Overview
 
-A classic turn-based, grid-based roguelike game that runs entirely in the browser. Built with TypeScript and rendered on HTML5 Canvas, deployed via GitHub Pages.
+A roguelike game evolving from 2D Canvas to first-person 3D. Built with TypeScript + Vite, rendered with Three.js (WebGL), deployed via GitHub Pages.
 
 ## Tech Stack
 
-| Component | Choice | Notes |
+| Component | Current (2D) | Target (3D) |
 |---|---|---|
-| Language | TypeScript 5 (strict) | Catches AI errors at compile time |
-| Bundler | Vite 6 | Fast dev server, optimized production builds |
-| Rendering | Canvas (game) + DOM (UI) | Canvas for tiles/FOV, DOM for text UI |
-| Testing | Vitest | Fast, Vite-native, ESM-compatible |
-| Storage | localStorage | No server needed |
-| Deployment | GitHub Pages | Static files from `npm run build` |
+| Language | TypeScript 5 (strict) | TypeScript 5 (strict) |
+| Bundler | Vite 6 | Vite 6 |
+| Rendering | Canvas API | Three.js (WebGL) |
+| UI | DOM | DOM overlay on 3D canvas |
+| Testing | Vitest + jsdom | Vitest + jsdom |
+| Storage | localStorage | localStorage |
+| Deployment | GitHub Pages | GitHub Pages |
+
+## Architecture Evolution
+
+### Phase 0 (Current): 2D Canvas Roguelike
+```
+Canvas 2D tiles → BSP dungeon → Entity glyphs → FOV shadowcasting
+```
+
+### Phase 1 (Target): 3D First-Person Roguelike
+```
+Three.js scene → BSP dungeon → 3D geometry (walls/floors) → First-person camera
+                                 → 3D enemy meshes → Combat system
+                                 → Dynamic lighting → Fog/atmosphere
+```
 
 ## Project Structure
 
 ```
 src/
-├── main.ts                 Entry point, DOM wiring
+├── main.ts                 Entry point, Three.js init, DOM wiring
 ├── core/                   Game core (Game, Dungeon, Tile, types)
 ├── entities/               Game entities (Entity, Player, Enemy, Item)
-├── systems/                Game systems (Render, Combat, FOV, Input, Save, Turn)
-├── ui/                     DOM-based UI (HUD)
-├── data/                   Static data (enemy/item definitions, colors)
-└── utils/                  Utilities (RNG, pathfinding, constants)
+├── systems/                Game systems
+│   ├── RenderSystem3D.ts   ← Three.js 3D renderer (replaces Canvas)
+│   ├── CombatSystem.ts
+│   ├── CameraController.ts ← First-person mouse look + WASD
+│   ├── InputHandler.ts     Keyboard + mouse input
+│   ├── SaveManager.ts
+│   └── TurnManager.ts
+├── ui/                     DOM-based UI (HUD, Inventory, MiniMap, GameOver)
+├── data/                   Static data (enemies, items, colors/materials)
+└── utils/                  RNG, pathfinding, constants, geometry helpers
 ```
 
-## Core Architecture
+## 3D Rendering Design
 
-### Game Loop
-
-The game is turn-based. Each player action triggers one full update cycle:
-
-1. **Input**: Keyboard event → InputHandler → Action dispatched
-2. **Player Action**: Move, bump-attack, wait, or pickup
-3. **Enemy Turns**: Each enemy takes its turn (chase if player visible, wander otherwise)
-4. **Systems Update**: FOV recomputed, death checks
-5. **Render**: Canvas redraws visible tiles + entities, HUD updates DOM stats
-
-### Dungeon Generation
-
-BSP (Binary Space Partitioning):
-- Recursively split space into leaf regions
-- Place rooms in leaves with margin
-- Connect sibling rooms with L-shaped corridors
-- Place entities (player in first room, enemies/items in others, stairs in last)
-
-### Field of View
-
-Recursive shadowcasting in 8 octants. Three visibility states:
-- **Visible**: Currently in FOV — full brightness
-- **Remembered**: Previously seen — dim rendering
-- **Unknown**: Never seen — black
-
-### Combat
-
-Bump-to-attack: moving into an enemy's tile triggers an attack.
-`damage = max(1, attacker.attack - defender.defense + random(-2, 2))`
-
-### Save System
-
-GameState serialized to JSON, stored in localStorage. Auto-saves on floor transitions.
-
-## Data Flow
-
+### Scene Graph
 ```
-┌──────────┐    Action    ┌──────────┐
-│ Keyboard │─────────────►│   Game   │
-└──────────┘              └────┬─────┘
-                               │
-              ┌────────────────┼────────────────┐
-              ▼                ▼                ▼
-        CombatSystem     TurnManager       FOVSystem
-              │                │                │
-              └────────────────┼────────────────┘
-                               ▼
-                        RenderSystem
-                               │
-                    ┌──────────┴──────────┐
-                    ▼                     ▼
-                 Canvas                DOM/HUD
+Scene
+├── AmbientLight (dim dungeon ambient)
+├── PointLight (attached to player — "torch")
+├── DungeonGroup
+│   ├── FloorMesh (merged plane geometry per room)
+│   └── WallMeshes (box geometries for each wall tile)
+├── EnemyGroup
+│   └── EnemyMesh (colored box/capsule per enemy)
+├── ItemGroup
+│   └── ItemMesh (rotating small geometry per item)
+└── ParticleGroup (damage numbers, effects)
 ```
+
+### Camera
+- PerspectiveCamera, FOV ~70
+- First-person: positioned at player eye level
+- Mouse look via PointerLock API
+- Collision: camera blocked by walls (raycasting)
+
+### Movement
+- WASD for forward/back/strafe
+- Rotation via mouse
+- Turn-based: each step = one turn, enemies move after
 
 ## Key Design Decisions
 
-1. **Entity-based, not ECS**: Few entity types; simple class hierarchy with composition. More maintainable for AI-driven evolution.
+1. **Keep BSP dungeon generation**: The 2D grid is the logical map. 3D geometry is derived from it. This preserves all existing dungeon logic.
 
-2. **Canvas + DOM hybrid**: Canvas for pixel-perfect tiles and FOV alpha blending. DOM for text-heavy UI (stats, message log). Each technology used where it excels.
+2. **Turn-based in 3D**: Movement is discrete (grid-based steps), not continuous free-movement. This keeps roguelike gameplay intact while looking 3D.
 
-3. **Seeded RNG**: Dungeon generation uses mulberry32 PRNG. Enables reproducible dungeons for testing and debugging.
+3. **Hybrid UI**: Game world in WebGL canvas, HUD/inventory/minimap as DOM overlay. Each technology used where it excels.
 
-4. **Single GameState object**: Entire game state is one serializable object. Simplifies save/load, state restoration, and debugging.
-
-5. **Turn-based with explicit ordering**: Player acts, then all enemies in sequence. No real-time concerns, no scheduling complexity.
+4. **Phased transition**: Fix all 2D bugs first, then add Three.js alongside existing code, then remove Canvas rendering once 3D is stable.
 
 ## Evolution History
 
 | Round | Date | Task | Description |
 |---|---|---|---|
-| 1 | 2026-07-21 | P0-01 | Initial seed: project skeleton + minimal playable roguelike |
+| 1 | 2026-07-21 | P0-01 | Initial seed: 2D Canvas roguelike |
+| 2 | 2026-07-21 | — | Gameplay tests + CI hardening |
+| 3 | 2026-07-21 | — | Daily assessment + bug tracker |
